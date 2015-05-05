@@ -1191,6 +1191,8 @@ class Manager extends Singleton
      */
     private function unloadPluginFromMemory($pluginName)
     {
+        $this->unloadPlugin($pluginName);
+
         $key = array_search($pluginName, $this->pluginsToLoad);
         if ($key !== false) {
             unset($this->pluginsToLoad[$key]);
