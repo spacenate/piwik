@@ -255,6 +255,9 @@ class UITestFixture extends SqlDump
             }
             $_GET['layout'] = json_encode($layout);
             $_GET['idDashboard'] = $id + 1;
+
+            echo "dashboard: {$_GET['idDashboard']} - " . print_r($layout, true);
+
             FrontController::getInstance()->fetchDispatch('Dashboard', 'saveLayout');
         }
 

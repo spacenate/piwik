@@ -105,6 +105,7 @@ class WidgetsList extends Singleton
             $widgetsList = self::getInstance();
 
             foreach (Report::getAllReports() as $report) {
+                echo "adding widget from report: " . $report->getModule() . '.' . $report->getAction() . "\n";
                 if ($report->isEnabled()) {
                     $report->configureWidget($widgetsList);
                 }
@@ -115,6 +116,7 @@ class WidgetsList extends Singleton
                 $widgets = $widgetContainer->getWidgets();
 
                 foreach ($widgets as $widget) {
+                    echo "adding widget: " . $widget['module'] . '.' . $widget['method'] . "\n";
                     $widgetsList->add($widget['category'], $widget['name'], $widget['module'], $widget['method'], $widget['params']);
                 }
             }

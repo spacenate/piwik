@@ -42,7 +42,7 @@ describe("UIIntegrationTest", function () { // TODO: Rename to Piwik?
     });
 
     // dashboard tests
-    it("should load dashboard1 correctly", function (done) {
+    it.only("should load dashboard1 correctly", function (done) {
         expect.screenshot("dashboard1").to.be.captureSelector('.pageWrap,.expandDataTableFooterDrawer', function (page) {
             page.load("?" + urlBase + "#" + generalParams + "&module=Dashboard&action=embeddedIndex&idDashboard=1");
 
@@ -53,19 +53,19 @@ describe("UIIntegrationTest", function () { // TODO: Rename to Piwik?
         }, done);
     });
 
-    it("should load dashboard2 correctly", function (done) {
+    it.only("should load dashboard2 correctly", function (done) {
         expect.screenshot("dashboard2").to.be.captureSelector('.pageWrap,.expandDataTableFooterDrawer', function (page) {
             page.load("?" + urlBase + "#" + generalParams + "&module=Dashboard&action=embeddedIndex&idDashboard=2");
         }, done);
     });
 
-    it("should load dashboard3 correctly", function (done) {
+    it.only("should load dashboard3 correctly", function (done) {
         expect.screenshot("dashboard3").to.be.captureSelector('.pageWrap,.expandDataTableFooterDrawer', function (page) {
             page.load("?" + urlBase + "#" + generalParams + "&module=Dashboard&action=embeddedIndex&idDashboard=3");
         }, done);
     });
 
-    it("should load dashboard4 correctly", function (done) {
+    it.only("should load dashboard4 correctly", function (done) {
         expect.screenshot("dashboard4").to.be.captureSelector('.pageWrap,.expandDataTableFooterDrawer', function (page) {
             page.load("?" + urlBase + "#" + generalParams + "&module=Dashboard&action=embeddedIndex&idDashboard=4");
         }, done);
