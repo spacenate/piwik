@@ -9,9 +9,12 @@
 namespace Piwik\Plugins\PrivacyManager;
 
 use Piwik\Common;
+use Piwik\Container\StaticContainer;
+use Piwik\DataAccess\RawLogDao;
 use Piwik\Date;
 use Piwik\Db;
 use Piwik\Log;
+use Piwik\LogPurger;
 use Piwik\Piwik;
 
 /**
@@ -37,6 +40,27 @@ class LogDataPurger
     private $maxRowsToDeletePerQuery;
 
     /**
+     * TODO
+     *
+     * @var LogPurger
+     */
+    private $logPurger;
+
+    /**
+     * TODO
+     *
+     * @var RawLogDao
+     */
+    private $rawLogDao;
+
+    /**
+     * TODO
+     *
+     * @var int
+     */
+    private $logIterationStepSize = 1000; // TODO: make configurable via constructor
+
+    /**
      * Constructor.
      *
      * @param int $deleteLogsOlderThan The number of days after which log entires are considered old.
@@ -45,10 +69,12 @@ class LogDataPurger
      * @param int $maxRowsToDeletePerQuery The maximum number of rows to delete in one query. Used to
      *                                     make sure log tables aren't locked for too long.
      */
-    public function __construct($deleteLogsOlderThan, $maxRowsToDeletePerQuery)
+    public function __construct($deleteLogsOlderThan, $maxRowsToDeletePerQuery, LogPurger $logPurger = null, RawLogDao $rawLogDao = null)
     {
         $this->deleteLogsOlderThan = $deleteLogsOlderThan;
         $this->maxRowsToDeletePerQuery = $maxRowsToDeletePerQuery;
+        $this->logPurger = $logPurger ?: StaticContainer::get('Piwik\LogPurger');
+        $this->rawLogDao = $rawLogDao ?: StaticContainer::get('Piwik\DataAccess\RawLogDao');
     }
 
     /**
@@ -61,33 +87,28 @@ class LogDataPurger
      */
     public function purgeData()
     {
-        $maxIdVisit = $this->getDeleteIdVisitOffset();
+        $dateStart = Date::factory("today")->subDay($this->deleteLogsOlderThan); // TODO: move logic to constructor
+        $conditions = array(
+            array('visit_last_action_time', '<', $dateStart->getDatetime())
+        );
 
-        // break if no ID was found (nothing to delete for given period)
-        if (empty($maxIdVisit)) {
-            return;
-        }
+        $logPurger = $this->logPurger;
+        $this->rawLogDao->forAllLogs('log_visit', array('idvisit'), $conditions, $this->logIterationStepSize, function ($rows) use ($logPurger) {
+            $ids = array_map('reset', $rows);
+            $logPurger->deleteVisits($ids);
+        });
 
         $logTables = self::getDeleteTableLogTables();
 
-        // delete data from log tables
-        $where = "WHERE idvisit <= ?";
-        foreach ($logTables as $logTable) {
-            // deleting from log_action must be handled differently, so we do it later
-            if ($logTable != Common::prefixTable('log_action')) {
-                Db::deleteAllRows($logTable, $where, "idvisit ASC", $this->maxRowsToDeletePerQuery, array($maxIdVisit));
-            }
-        }
-
         // delete unused actions from the log_action table (but only if we can lock tables)
         if (Db::isLockPrivilegeGranted()) {
-            $this->purgeUnusedLogActions();
+            $this->purgeUnusedLogActions(); // TODO: move actual code to DAO/service in core
         } else {
             $logMessage = get_class($this) . ": LOCK TABLES privilege not granted; skipping unused actions purge";
             Log::warning($logMessage);
         }
 
-        // optimize table overhead after deletion
+        // optimize table overhead after deletion // TODO: logs:delete command should allow optimization
         Db::optimizeTables($logTables);
     }
 
@@ -98,6 +119,10 @@ class LogDataPurger
      * that will be deleted.
      *
      * @return array
+     *
+     * TODO: purge estimate should ideally not use idvisit, but we have to wait until performance tests are done to
+     *       really test this.
+     * TODO: let's move PrivacyManagerTest to PrivacyManager plugin
      */
     public function getPurgeEstimate()
     {
