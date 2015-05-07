@@ -12,6 +12,7 @@ use Piwik\ArchiveProcessor\Rules;
 use Piwik\Common;
 use Piwik\Config;
 use Piwik\DataAccess\ArchiveTableCreator;
+use Piwik\DataAccess\RawLogDao;
 use Piwik\DataTable\Manager;
 use Piwik\Date;
 use Piwik\Db;
@@ -133,7 +134,7 @@ class PrivacyManagerTest extends SystemTestCase
         Cache::deleteTrackerCache();
         ArchiveTableCreator::clear();
 
-        $tempTableName = Common::prefixTable(LogDataPurger::TEMP_TABLE_NAME);
+        $tempTableName = Common::prefixTable(RawLogDao::TEMP_TABLE_NAME);
         Db::query("DROP TABLE IF EXISTS " . $tempTableName);
     }
 

@@ -10,12 +10,20 @@ namespace Piwik\DataAccess;
 
 use Piwik\Common;
 use Piwik\Db;
+use Piwik\Piwik;
 
 /**
  * DAO that queries log tables.
  */
 class RawLogDao
 {
+    const TEMP_TABLE_NAME = 'tmp_log_actions_to_keep'; // TODO: rename TEMP_TABLE_NAME const name for the method its used in
+
+    /**
+     * The max set of rows each table scan select should query at one time. TODO: this was copied from LogDataPurger. should be specified on construction.
+     */
+    public static $selectSegmentSize = 100000;
+
     /**
      * @param array $values
      * @param string $idVisit
@@ -179,6 +187,34 @@ class RawLogDao
     }
 
     /**
+     * TODO
+     * @throws \Exception
+     */
+    public function deleteUnusedLogActions()
+    {
+        if (!Db::isLockPrivilegeGranted()) {
+            throw new \Exception("RawLogDao.deleteUnusedLogActions() requires table locking permission in order to complete without error.");
+        }
+
+        // get current max ID in log tables w/ idaction references.
+        $maxIds = $this->getMaxIdsInLogTables();
+
+        $this->createTempTable();
+
+        // do large insert (inserting everything before maxIds) w/o locking tables...
+        $this->insertActionsToKeep($maxIds, $deleteOlderThanMax = true);
+
+        // ... then do small insert w/ locked tables to minimize the amount of time tables are locked.
+        $this->lockLogTables();
+        $this->insertActionsToKeep($maxIds, $deleteOlderThanMax = false);
+
+        // delete before unlocking tables so there's no chance a new log row that references an
+        // unused action will be inserted.
+        $this->deleteUnusedActions();
+        Db::unlockAllTables();
+    }
+
+    /**
      * @param array $columnsToSet
      * @return string
      */
@@ -268,5 +304,128 @@ class RawLogDao
         $sql .= ")";
 
         return $sql;
+    }
+
+
+    private function getMaxIdsInLogTables()
+    {
+        $tables = array('log_conversion', 'log_link_visit_action', 'log_visit', 'log_conversion_item');
+        $idColumns = $this->getTableIdColumns();
+
+        $result = array();
+        foreach ($tables as $table) {
+            $idCol = $idColumns[$table];
+            $result[$table] = Db::fetchOne("SELECT MAX($idCol) FROM " . Common::prefixTable($table));
+        }
+
+        return $result;
+    }
+
+    private function createTempTable()
+    {
+        $sql = "CREATE TEMPORARY TABLE " . Common::prefixTable(self::TEMP_TABLE_NAME) . " (
+					idaction INT(11),
+					PRIMARY KEY (idaction)
+				)";
+        Db::query($sql);
+    }
+
+    private function insertActionsToKeep($maxIds, $olderThan = true)
+    {
+        $tempTableName = Common::prefixTable(self::TEMP_TABLE_NAME);
+
+        $idColumns = $this->getTableIdColumns();
+        foreach ($this->getIdActionColumns() as $table => $columns) {
+            $idCol = $idColumns[$table];
+
+            foreach ($columns as $col) {
+                $select = "SELECT $col FROM " . Common::prefixTable($table) . " WHERE $idCol >= ? AND $idCol < ?";
+                $sql = "INSERT IGNORE INTO $tempTableName $select";
+
+                if ($olderThan) {
+                    $start = 0;
+                    $finish = $maxIds[$table];
+                } else {
+                    $start = $maxIds[$table];
+                    $finish = Db::fetchOne("SELECT MAX($idCol) FROM " . Common::prefixTable($table));
+                }
+
+                Db::segmentedQuery($sql, $start, $finish, self::$selectSegmentSize);
+            }
+        }
+
+        // allow code to be executed after data is inserted. for concurrency testing purposes.
+        if ($olderThan) {
+            /**
+             * @ignore
+             */
+            Piwik::postEvent("LogDataPurger.ActionsToKeepInserted.olderThan"); // TODO: use DI/descendant class instead
+        } else {
+            /**
+             * @ignore
+             */
+            Piwik::postEvent("LogDataPurger.ActionsToKeepInserted.newerThan");
+        }
+    }
+
+    private function lockLogTables()
+    {
+        Db::lockTables(
+            $readLocks = Common::prefixTables('log_conversion',
+                'log_link_visit_action',
+                'log_visit',
+                'log_conversion_item'),
+            $writeLocks = Common::prefixTables('log_action')
+        );
+    }
+
+    private function deleteUnusedActions()
+    {
+        list($logActionTable, $tempTableName) = Common::prefixTables("log_action", self::TEMP_TABLE_NAME);
+
+        $deleteSql = "DELETE LOW_PRIORITY QUICK IGNORE $logActionTable
+						FROM $logActionTable
+				   LEFT JOIN $tempTableName tmp ON tmp.idaction = $logActionTable.idaction
+					   WHERE tmp.idaction IS NULL";
+
+        Db::query($deleteSql);
+    }
+
+    private function getIdActionColumns()
+    {
+        return array(
+            'log_link_visit_action' => array('idaction_url',
+                'idaction_url_ref',
+                'idaction_name',
+                'idaction_name_ref',
+                'idaction_event_category',
+                'idaction_event_action'
+            ),
+
+            'log_conversion'        => array('idaction_url'),
+
+            'log_visit'             => array('visit_exit_idaction_url',
+                'visit_exit_idaction_name',
+                'visit_entry_idaction_url',
+                'visit_entry_idaction_name'),
+
+            'log_conversion_item'   => array('idaction_sku',
+                'idaction_name',
+                'idaction_category',
+                'idaction_category2',
+                'idaction_category3',
+                'idaction_category4',
+                'idaction_category5')
+        );
+    }
+
+    private function getTableIdColumns()
+    {
+        return array(
+            'log_link_visit_action' => 'idlink_va',
+            'log_conversion'        => 'idvisit',
+            'log_visit'             => 'idvisit',
+            'log_conversion_item'   => 'idvisit'
+        );
     }
 }
