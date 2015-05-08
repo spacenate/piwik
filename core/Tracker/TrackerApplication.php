@@ -9,15 +9,16 @@
 namespace Piwik\Tracker;
 
 use Piwik\Application\Application;
+use Piwik\Application\Environment;
 
 /**
  * TODO
  */
 class TrackerApplication extends Application
 {
-    public function __construct()
+    public function __construct($definitions = array())
     {
-        parent::__construct(new TrackerEnvironment());
+        parent::__construct(new Environment('tracker'), $definitions);
     }
 
     /**

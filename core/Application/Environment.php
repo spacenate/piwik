@@ -152,7 +152,6 @@ class Environment
      */
     protected function getPluginList()
     {
-        // TODO: in tracker should only load tracker plugins. can't do properly until tracker entrypoint is encapsulated.
         return new PluginList($this->getGlobalSettingsCached());
     }
 
