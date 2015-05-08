@@ -109,7 +109,10 @@ class Environment
         $definitions = array_merge(StaticContainer::getDefinitions(), $this->definitions);
 
         $containerFactory = new ContainerFactory($pluginList, $settings, $this->environment, $definitions);
-        return $containerFactory->create();
+        $container = $containerFactory->create();
+        $container->set('Piwik\Application\Environment', $this);
+
+        return $container;
     }
 
     protected function getGlobalSettingsCached()
