@@ -223,14 +223,10 @@ class CronArchive
     /**
      * Constructor.
      *
-     * @param string|false $piwikUrl The URL to the Piwik installation to initiate archiving for. If `false`,
-     *                               we determine it using the current request information. TODO: remove this param
-     *
-     *                               If invoked via the command line, $piwikUrl cannot be false.
      * @param string|null $processNewSegmentsFrom When to archive new segments from. See [General] process_new_segments_from
      *                                            for possible values.
      */
-    public function __construct($piwikUrl = false, $processNewSegmentsFrom = null, LoggerInterface $logger = null)
+    public function __construct($processNewSegmentsFrom = null, LoggerInterface $logger = null)
     {
         $this->logger = $logger ?: StaticContainer::get('Psr\Log\LoggerInterface');
         $this->formatter = new Formatter();
@@ -575,8 +571,6 @@ class CronArchive
         }
         return $success;
     }
-
-    // TODO: make sure core:archive + web archive is tested when host is for domain (need --dry-run parameter + some output to check for so test won't be super slow)
 
     /**
      * Returns base URL to process reports for the $idSite on a given $period
@@ -1070,8 +1064,6 @@ class CronArchive
 
         return $websiteDayHasFinishedSinceLastRun;
     }
-
-    // TODO: test archiving w/ curl (ie, when piwik host is unreachable, is there a useful error message?
 
     private function logInitInfo()
     {
