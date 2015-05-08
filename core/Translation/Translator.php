@@ -8,6 +8,7 @@
 
 namespace Piwik\Translation;
 
+use Piwik\Application\Kernel\GlobalSettingsProvider;
 use Piwik\Config;
 use Piwik\Piwik;
 use Piwik\Plugin;
@@ -49,9 +50,15 @@ class Translator
      */
     private $loader;
 
-    public function __construct(LoaderInterface $loader, array $directories = null)
+    /**
+     * @var GlobalSettingsProvider
+     */
+    private $settingsProvider;
+
+    public function __construct(LoaderInterface $loader, GlobalSettingsProvider $settingsProvider, array $directories = null)
     {
         $this->loader = $loader;
+        $this->settingsProvider = $settingsProvider;
         $this->currentLanguage = $this->getDefaultLanguage();
 
         if ($directories === null) {
@@ -114,7 +121,8 @@ class Translator
      */
     public function getDefaultLanguage()
     {
-        $generalSection = Config::getInstance()->General;
+
+        $generalSection = $this->settingsProvider->getSection('General');
 
         // the config may not be available (for example, during environment setup), so we default to 'en'
         // if the config cannot be found.

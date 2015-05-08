@@ -8,6 +8,8 @@
  */
 namespace Piwik;
 
+use DI\Container;
+use Interop\Container\ContainerInterface;
 use Piwik\Cache\Backend;
 use Piwik\Container\StaticContainer;
 
@@ -64,33 +66,35 @@ class Cache
     }
 
     /**
+     * @param ContainerInterface $container
      * @param $type
-     * @return Cache\Backend
+     * @return Backend
      */
-    public static function buildBackend($type)
+    public static function buildBackend(ContainerInterface $container, $type)
     {
-        $factory = new Cache\Backend\Factory();
-        $options = self::getOptions($type);
+        /** @var Cache\Backend\Factory $factory */
+        $factory = $container->get('Piwik\Cache\Backend\Factory');
+        $options = self::getOptions($container, $type);
 
         $backend = $factory->buildBackend($type, $options);
 
         return $backend;
     }
 
-    private static function getOptions($type)
+    private static function getOptions(ContainerInterface $container, $type)
     {
-        $options = self::getBackendOptions($type);
+        $options = self::getBackendOptions($container, $type);
 
         switch ($type) {
             case 'file':
 
-                $options = array('directory' => StaticContainer::get('path.cache'));
+                $options = array('directory' => $container->get('path.cache'));
                 break;
 
             case 'chained':
 
                 foreach ($options['backends'] as $backend) {
-                    $options[$backend] = self::getOptions($backend);
+                    $options[$backend] = self::getOptions($container, $backend);
                 }
 
                 break;
@@ -107,11 +111,9 @@ class Cache
         return $options;
     }
 
-    private static function getBackendOptions($backend)
+    private static function getBackendOptions(ContainerInterface $container, $backend)
     {
-        $key = ucfirst($backend) . 'Cache';
-        $options = Config::getInstance()->$key;
-
-        return $options;
+        $key = 'ini.' . ucfirst($backend) . 'Cache';
+        return $container->get($key);
     }
 }
