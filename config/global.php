@@ -51,7 +51,7 @@ return array(
             $backend = 'chained'; // happens if global.ini.php is not available
         }
 
-        return \Piwik\Cache::buildBackend($backend);
+        return \Piwik\Cache::buildBackend($c, $backend);
     },
     'cache.eager.cache_id' => function () {
         return 'eagercache-' . str_replace(array('.', '-'), '', \Piwik\Version::VERSION) . '-';
