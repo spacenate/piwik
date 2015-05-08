@@ -576,6 +576,8 @@ class CronArchive
         return $success;
     }
 
+    // TODO: make sure core:archive + web archive is tested when host is for domain (need --dry-run parameter + some output to check for so test won't be super slow)
+
     /**
      * Returns base URL to process reports for the $idSite on a given $period
      */
